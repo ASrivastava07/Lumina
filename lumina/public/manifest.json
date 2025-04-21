@@ -1,0 +1,33 @@
+{
+    "name": "Lumina",
+    "short_name": "Lumina",
+    "description": "A smart, AI-powered study planner PWA.",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffe7cd",
+    "theme_color": "#ed9345",
+    "orientation": "portrait",
+    "icons": [
+      {
+        "src": "/icon-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "/icon-256x256.png",
+        "sizes": "256x256",
+        "type": "image/png"
+      },
+      {
+        "src": "/icon-384x384.png",
+        "sizes": "384x384",
+        "type": "image/png"
+      },
+      {
+        "src": "/icon-512x512.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      }
+    ]
+  }
+  
