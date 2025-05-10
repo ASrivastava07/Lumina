@@ -32,9 +32,10 @@ export async function POST(req: NextRequest) {
     await client.close();
 
     if (!user) {
+      // Don't reveal if user exists
       return NextResponse.json(
-        { success: false, message: 'User not found' },
-        { status: 404 }
+        { success: false, message: "Email or password incorrect" },
+        { status: 401 }
       );
     }
 
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
     if (!passwordMatch) {
       return NextResponse.json(
-        { success: false, message: 'Invalid password' },
+        { success: false, message: 'Email or password incorrect' },
         { status: 401 }
       );
     }
