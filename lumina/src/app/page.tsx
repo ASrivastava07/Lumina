@@ -1,103 +1,206 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+type AuthMode = 'login' | 'signup' | 'forgot';
+
+export default function AuthPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<AuthMode>('login');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const endpoint = mode === 'login'
+        ? '/api/login'
+        : mode === 'signup'
+        ? '/api/signup'
+        : '/api/forgot-password'; // can be a placeholder route for now
+
+      const payload =
+        mode === 'signup'
+          ? {
+              name: formData.name,
+              email: formData.email,
+              password: formData.password,
+            }
+          : {
+              email: formData.email,
+              password: formData.password,
+            };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.message || 'Something went wrong');
+      }
+
+      if (mode === 'login') {
+        localStorage.setItem('is_logged_in', 'true');
+        localStorage.setItem('user_email', formData.email);
+        router.push('/dashboard');
+      } else if (mode === 'signup') {
+        setSuccess('Signup successful! You can now log in.');
+        setMode('login');
+      } else if (mode === 'forgot') {
+        setSuccess('Password reset link sent to your email.');
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderButtonLabel = () => {
+    if (loading) return 'Submitting...';
+    if (mode === 'login') return 'Login';
+    if (mode === 'signup') return 'Sign Up';
+    return 'Send Reset Link';
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-screen bg-[#fcf1d9] flex items-center justify-center px-4">
+      <div className="w-full max-w-xl bg-white p-6 sm:p-10 md:p-12 rounded-2xl shadow-xl border border-gray-200">
+        <h1 className="text-2xl font-bold text-center text-[#e97917] mb-6">
+          {mode === 'login'
+            ? 'Login to Lumina'
+            : mode === 'signup'
+            ? 'Create a Lumina Account'
+            : 'Forgot Password'}
+        </h1>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        {error && <p className="text-red-500 text-sm text-center mb-4">{error}</p>}
+        {success && <p className="text-green-600 text-sm text-center mb-4">{success}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {mode === 'signup' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Name</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Your Name"
+                className="mt-1 w-full px-4 py-2 border border-gray-300 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e97917]"
+                required
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              placeholder="you@example.com"
+              className="mt-1 w-full px-4 py-2 border border-gray-300 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e97917]"
+              required
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          {(mode === 'login' || mode === 'signup') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Password</label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="********"
+                className="mt-1 w-full px-4 py-2 border border-gray-300 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-[#e97917]"
+                required
+              />
+            </div>
+          )}
+
+          <button
+            type="submit"
+            className={`w-full py-2 px-4 text-white rounded-lg transition ${
+              loading ? 'bg-[#f3ba87] cursor-not-allowed' : 'bg-[#e97917] hover:bg-[#cc620f]'
+            }`}
+            disabled={loading}
           >
-            Read our docs
-          </a>
+            {renderButtonLabel()}
+          </button>
+        </form>
+
+        <div className="text-center text-sm text-gray-600 mt-6">
+          {mode === 'login' && (
+            <>
+              <p>
+                Don&apos;t have an account?{' '}
+                <button
+                  onClick={() => setMode('signup')}
+                  className="text-[#e97917] hover:underline font-semibold"
+                >
+                  Sign up
+                </button>
+              </p>
+              <p className="mt-2">
+                Forgot your password?{' '}
+                <button
+                  onClick={() => setMode('forgot')}
+                  className="text-[#e97917] hover:underline font-semibold"
+                >
+                  Reset Password
+                </button>
+              </p>
+            </>
+          )}
+          {mode === 'signup' && (
+            <p>
+              Already have an account?{' '}
+              <button
+                onClick={() => setMode('login')}
+                className="text-[#e97917] hover:underline font-semibold"
+              >
+                Login
+              </button>
+            </p>
+          )}
+          {mode === 'forgot' && (
+            <p>
+              Remembered your password?{' '}
+              <button
+                onClick={() => setMode('login')}
+                className="text-[#e97917] hover:underline font-semibold"
+              >
+                Back to login
+              </button>
+            </p>
+          )}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }
