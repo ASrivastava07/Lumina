@@ -58,9 +58,7 @@ export default function AuthPage() {
       const result = await res.json();
 
       if (!res.ok) {
-         // Always show the same message
-        setError('Email or password incorrect');
-        return;
+        throw new Error(result.message || 'Something went wrong');
       }
 
       if (mode === 'login') {
