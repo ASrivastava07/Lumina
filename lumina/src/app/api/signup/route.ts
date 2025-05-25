@@ -17,7 +17,21 @@ export async function POST(req: NextRequest) {
 
     if (!name || !email || !password) {
       return NextResponse.json(
-        { success: false, message: 'Missing fields' },
+        { success: false, message: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json(
+        { success: false, message: 'Invalid email format' },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 6) {
+      return NextResponse.json(
+        { success: false, message: 'Password must be at least 6 characters long' },
         { status: 400 }
       );
     }
@@ -31,10 +45,11 @@ export async function POST(req: NextRequest) {
       email: email.toLowerCase().trim(),
     });
 
+    await client.close();
+
     if (existingUser) {
-      await client.close();
       return NextResponse.json(
-        { success: false, message: 'Email already registered' },
+        { success: false, message: 'Account Already Exists' },
         { status: 409 }
       );
     }
@@ -48,6 +63,8 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
     };
 
+    // Connect again to insert new user
+    await client.connect();
     await users.insertOne(newUser);
     await client.close();
 
@@ -55,8 +72,8 @@ export async function POST(req: NextRequest) {
       { success: true, message: 'Signup successful!' },
       { status: 201 }
     );
-  } catch (error) {
-    console.error('Signup Error:', error);
+  } catch (error: any) {
+    console.error('Signup Error:', error.message);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },
       { status: 500 }

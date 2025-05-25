@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Bar, Doughnut } from 'react-chartjs-2';
+import { useRouter } from 'next/navigation';
 import {
   Chart as ChartJS,
   BarElement,
@@ -15,18 +16,19 @@ import {
 ChartJS.register(BarElement, ArcElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 // Default subject list
-const defaultSubjects = ['Maths', 'Physics', 'English'];
+const defaultSubjects = ['Maths', 'Chemistry', 'English', 'Music'];
 const subjectColorsMap = {
   Maths: '#f97316',
-  Physics: '#3b82f6',
+  Chemistry: '#3b82f6',
   English: '#10b981',
+  Music: '#800080',
 };
 
 // Dummy daily study data per subject
 const dailyStudyData = {
-  '2025-05-16': [3, 4, 1],
-  '2025-05-17': [2, 3, 1],
-  '2025-05-18': [2, 3, 4],
+  '2025-05-16': [3, 4, 1, 3],
+  '2025-05-17': [2, 3, 1, 4],
+  '2025-05-18': [2, 4, 3, 5],
 };
 
 
@@ -45,8 +47,8 @@ export default function Dashboard() {
     },
     {
       id: 2,
-      title: 'Finish Physics Lab Report',
-      subject: 'Physics',
+      title: 'Finish Chemistry Lab Report',
+      subject: 'Chemistry',
       deadline: '2025-05-15',
       completed: false,
     },
@@ -75,30 +77,36 @@ export default function Dashboard() {
   });
 
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  
 
-  const studyHours = dailyStudyData[selectedDate] || [0, 0, 0];
+  const studyHours = dailyStudyData[selectedDate] || [0, 0, 0, 0];
 
   const barDataDaily = {
-    labels: defaultSubjects,
+    labels: subjects,
     datasets: [
       {
         label: 'Study Hours',
         data: studyHours,
-        backgroundColor: defaultSubjects.map((s) => subjectColorsMap[s]),
+        backgroundColor: subjects.map((s) => subjectColorsMap[s]),
       },
     ],
   };
 
 
-  const doughnutData = {
-    labels: ['No data'],
-    datasets: [
-      {
-        data: [1],
-        backgroundColor: ['#d1d5db'],
-        borderWidth: 1,
-      },
-    ],
+  const getDoughnutData = () => {
+    const dataForDate = dailyStudyData[selectedDate] || Array(subjects.length).fill(0);
+
+    return {
+      labels: subjects,
+      datasets: [
+        {
+          label: 'Time Spent',
+          data: dataForDate,
+          backgroundColor: subjects.map((subject) => subjectColorsMap[subject]),
+          borderWidth: 1,
+        },
+      ],
+    };
   };
 
   const toggleComplete = (id: number) => {
@@ -144,11 +152,26 @@ export default function Dashboard() {
     }
   };
 
+  const router = useRouter();
+  const handleLogout = () => {
+  fetch('/api/logout', {
+    method: 'POST',
+    credentials: 'same-origin',
+  }).then(() => {
+    router.push('http://localhost:3000');
+  }); }
+  
+
+
   return (
     <div className="min-h-screen w-full bg-orange-50 px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-orange-600">Welcome, Emily</h1>
-        <button className="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 transition">Settings</button>
+        <h1 className="text-2xl font-semibold text-orange-600">Welcome, Jeff</h1>
+        <button onClick={handleLogout} className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-600 font-semibold transition">
+          Logout
+        </button> 
+        <button className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-600 font-semibold transition">Settings</button>
+
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr] gap-6 h-[80vh]">
@@ -303,9 +326,8 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl p-4 shadow-md flex flex-col items-center justify-center flex-1">
             <h2 className="text-lg font-semibold text-gray-700 mb-4">Subject-wise Time Allocation</h2>
             <div className="w-full max-w-[200px] h-full">
-              <Doughnut data={doughnutData} options={{ responsive: true, maintainAspectRatio: false }} />
+              <Doughnut data={getDoughnutData()} options={{ responsive: true, maintainAspectRatio: false }} />
             </div>
-            <p className="text-sm text-gray-800 text-gray-400 mt-4">No data yet</p>
           </div>
 
           {/* AI Insights */}
