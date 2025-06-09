@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // List of protected routes
-const protectedRoutes = ['/dashboard', '/timer', '/settings'];
+const protectedRoutes = ['/dashboard', '/timer', '/Settings'];
 
 export function middleware(req: NextRequest) {
   const isLoggedIn = req.cookies.get('is_logged_in')?.value === 'true';
@@ -42,5 +42,5 @@ export function middleware(req: NextRequest) {
 
 // Apply middleware to these routes
 export const config = {
-  matcher: ['/dashboard', '/timer','/settings', '/Log'],
+  matcher: ['/dashboard', '/timer','/Settings', '/Log'],
 };

@@ -274,7 +274,7 @@ const doughnutData = {
           Logout
         </button>
         <div className="flex justify-end">
-          <Link href="/settings" className="block">
+          <Link href="/Settings" className="block">
             <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition">
               Settings
             </button>
