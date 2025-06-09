@@ -12,7 +12,7 @@ export default function AuthPage() {
     name: '',
     email: '',
     password: '',
-  });
+  }); // lovely
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
