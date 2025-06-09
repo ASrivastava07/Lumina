@@ -21,6 +21,8 @@ const TimerPage = () => {
 
   // Stores the initial duration of the main study timer when it starts (only for countdown modes)
   const [initialCountdownDuration, setInitialCountdownDuration] = useState(0);
+  // This state will store the time studied *before* a pause (for custom/stopwatch)
+  const [prePauseStudySeconds, setPrePauseStudySeconds] = useState(0);
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -36,7 +38,7 @@ const TimerPage = () => {
           setSubject(data.subjects[0]);
         }
       });
-  }, [subject]); // Added subject to dependency array to re-fetch if subject changes (though typically not needed)
+  }, [subject]);
 
   const presets = {
     pomodoro: 25 * 60,
@@ -44,14 +46,14 @@ const TimerPage = () => {
   };
 
   // --- Timer Initialization/Reset Effect ---
-  // This effect handles setting initial timer values when the mode or custom time changes,
-  // but only when the timer is NOT running or on break.
   useEffect(() => {
+    // Only reset if the timer is not running and not on a break.
+    // This prevents resets while a timer is active or paused.
     if (!timerRunning && !onBreak) {
       if (mode === 'stopwatch') {
         setStopwatchSeconds(0);
-        setCountdownTimeLeft(0); // Ensure countdown is cleared for stopwatch mode
-        setInitialCountdownDuration(0); // Stopwatch has no fixed initial duration
+        setCountdownTimeLeft(0);
+        setInitialCountdownDuration(0);
       } else { // This block handles 'pomodoro', 'reversePomodoro', 'custom'
         let durationToSet = 0;
         if (mode === 'pomodoro') {
@@ -63,14 +65,16 @@ const TimerPage = () => {
         }
         setCountdownTimeLeft(durationToSet);
         setInitialCountdownDuration(durationToSet);
-        setStopwatchSeconds(0); // Reset stopwatch if switching from it
+        setStopwatchSeconds(0);
       }
+      setPrePauseStudySeconds(0); // Reset pre-pause time on mode change/reset
     }
   }, [mode, customMinutes, timerRunning, onBreak]);
 
   // --- Handle Start Timer ---
   const handleStart = () => {
     if (!subject) return alert('Please select a subject');
+    if (timerRunning) return; // Prevent starting if already running
 
     // Clear any existing interval to prevent multiple timers running simultaneously
     if (intervalRef.current) {
@@ -79,26 +83,32 @@ const TimerPage = () => {
 
     setTimerRunning(true);
     setOnBreak(false);
-    setStopwatchSeconds(0); // Always reset stopwatch on new start
 
+    // Set initial values only if starting fresh (not resuming from a pause)
     if (mode === 'pomodoro') {
-      setInitialCountdownDuration(presets.pomodoro);
-      setCountdownTimeLeft(presets.pomodoro);
+      if (initialCountdownDuration === 0 || countdownTimeLeft === 0) {
+        setInitialCountdownDuration(presets.pomodoro);
+        setCountdownTimeLeft(presets.pomodoro);
+      }
     } else if (mode === 'reversePomodoro') {
-      setInitialCountdownDuration(presets.reversePomodoro);
-      setCountdownTimeLeft(presets.reversePomodoro);
+      if (initialCountdownDuration === 0 || countdownTimeLeft === 0) {
+        setInitialCountdownDuration(presets.reversePomodoro);
+        setCountdownTimeLeft(presets.reversePomodoro);
+      }
     } else if (mode === 'custom') {
       const customDur = Math.min(parseInt(customMinutes) * 60 || 0, 180 * 60);
       if (customDur <= 0) {
-        setTimerRunning(false); // Do not start if custom time is invalid
+        setTimerRunning(false);
         return alert('Invalid custom time. Please enter 1-180 minutes.');
       }
-      setInitialCountdownDuration(customDur);
-      setCountdownTimeLeft(customDur);
+      if (initialCountdownDuration === 0 || countdownTimeLeft === 0) {
+        setInitialCountdownDuration(customDur);
+        setCountdownTimeLeft(customDur);
+      }
     } else if (mode === 'stopwatch') {
-      // For stopwatch, initialCountdownDuration is irrelevant for start
-      setInitialCountdownDuration(0);
-      setStopwatchSeconds(0); // Redundant due to above, but explicit
+      setInitialCountdownDuration(0); // Stopwatch has no fixed initial duration
+      // stopwatchSeconds should retain its value if starting after a pause,
+      // but if starting fresh, it will be 0 due to the useEffect or manual reset.
     }
 
     // Start the main timer interval
@@ -125,19 +135,22 @@ const TimerPage = () => {
             actualStudyTimeForBreak = initialCountdownDuration; // Use the stored initial duration
           }
 
-          const breakDuration = Math.floor(
-            (mode === 'pomodoro' || mode === 'reversePomodoro') ? 5 * 60 : actualStudyTimeForBreak / 3
-          );
+          const breakDuration = (mode === 'pomodoro' || mode === 'reversePomodoro')
+            ? 5 * 60 // Fixed 5 min break for Pomodoro/Reverse
+            : Math.floor(actualStudyTimeForBreak / 3); // 1/3 of study time for custom
 
           if (breakDuration > 0) {
             setBreakTimeLeft(breakDuration);
             setOnBreak(true); // Initiate break
+            setPrePauseStudySeconds(actualStudyTimeForBreak); // Store the completed study time for saving after break
           } else {
-            // If no break (e.g., custom very short timer), just reset for next session
+            // If no break (e.g., custom very short timer), just save and reset for next session
+            handleSaveStudyTime(actualStudyTimeForBreak); // Save the study time
             setStopwatchSeconds(0);
-            setCountdownTimeLeft(0);
+            setCountdownTimeLeft(initialCountdownDuration); // Reset countdown to its initial value for next run
             setTimerRunning(false);
             setOnBreak(false);
+            setPrePauseStudySeconds(0); // Reset pre-pause time
           }
           return 0; // Set countdown to 0 when finished
         });
@@ -145,10 +158,54 @@ const TimerPage = () => {
     }, 1000);
   };
 
+  // --- Handle Pause Timer (for Custom and Stopwatch) ---
+  const handlePause = async () => {
+    if (!timerRunning || onBreak) return; // Only pause if timer is running and not already on break
+
+    clearInterval(intervalRef.current!); // Stop the current interval
+    setTimerRunning(false);
+
+    let actualStudyTimeForBreak = 0;
+
+    if (mode === 'stopwatch') {
+      actualStudyTimeForBreak = stopwatchSeconds;
+    } else if (mode === 'custom') {
+      // For custom, it's the time studied so far in the current segment
+      actualStudyTimeForBreak = initialCountdownDuration - countdownTimeLeft;
+    } else {
+      // Pomodoro and Reverse Pomodoro don't have a 'pause for break' in the same way.
+      // They only trigger a break *after* completing the full study time.
+      // If a pause is clicked for these modes, we can simply stop and save.
+      await handleStop();
+      return;
+    }
+
+    const breakDuration = Math.floor(actualStudyTimeForBreak / 3);
+
+    if (breakDuration > 0) {
+      setBreakTimeLeft(breakDuration);
+      setOnBreak(true); // Initiate break
+      setPrePauseStudySeconds(actualStudyTimeForBreak); // Store the time studied for saving after break
+    } else {
+      // If no significant study time for a break, just stop the timer and save any minimal time.
+      await handleSaveStudyTime(actualStudyTimeForBreak); // Save the study time
+      setCountdownTimeLeft(0);
+      setStopwatchSeconds(0);
+      setPrePauseStudySeconds(0);
+      setTimerRunning(false);
+      setOnBreak(false);
+    }
+  };
+
   // --- Handle Break Timer ---
   // This useEffect ensures the break timer runs automatically when `onBreak` state is true
   useEffect(() => {
-    if (!onBreak) return;
+    if (!onBreak) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      return;
+    }
 
     // Clear any existing interval to prevent multiple break intervals running
     if (intervalRef.current) {
@@ -164,9 +221,16 @@ const TimerPage = () => {
         setOnBreak(false);
         setTimerRunning(false); // Timer stops after break
 
+        // Save the study time that led to this break
+        handleSaveStudyTime(prePauseStudySeconds); // Use the stored pre-pause study time
+        setPrePauseStudySeconds(0); // Reset after saving
+
         // Reset for next study session
-        setStopwatchSeconds(0);
-        setCountdownTimeLeft(initialCountdownDuration); // Reset countdown to its initial value for next run
+        if (mode === 'stopwatch') {
+          setStopwatchSeconds(0);
+        } else {
+          setCountdownTimeLeft(initialCountdownDuration); // Reset countdown to its initial value for next run
+        }
         return 0;
       });
     }, 1000);
@@ -178,32 +242,15 @@ const TimerPage = () => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [onBreak, initialCountdownDuration]); // Depend on onBreak and initialCountdownDuration
+  }, [onBreak, initialCountdownDuration, mode, prePauseStudySeconds]); // Depend on onBreak, initialCountdownDuration, mode, and prePauseStudySeconds
 
-  // --- Handle Stop Timer ---
-  const handleStop = async () => {
-    clearInterval(intervalRef.current!); // Stop any active interval
-    setTimerRunning(false);
-    setOnBreak(false); // Ensure break state is off
-
+  // --- Unified function to save study time ---
+  const handleSaveStudyTime = async (seconds: number) => {
     const today = new Date().toISOString().split('T')[0];
-
-    // Calculate how many seconds were actually studied based on the current mode
-    let secondsStudied = 0;
-    if (mode === 'stopwatch') {
-      secondsStudied = stopwatchSeconds;
-    } else { // 'pomodoro', 'reversePomodoro', 'custom'
-      // For countdown timers, it's the initial duration minus what's left
-      secondsStudied = Math.max(0, initialCountdownDuration - countdownTimeLeft);
-    }
-
-    const roundedHours = Math.round((secondsStudied / 3600) * 10) / 10;
+    const roundedHours = Math.round((seconds / 3600) * 10) / 10;
 
     // Only save study hours if a valid subject is selected and time was actually studied
     if (roundedHours <= 0 || !subject) {
-      // Still reset visuals even if not saving data
-      setCountdownTimeLeft(0);
-      setStopwatchSeconds(0);
       return;
     }
 
@@ -220,10 +267,28 @@ const TimerPage = () => {
     } catch (err) {
       console.error('Error saving study hours:', err);
     }
+  };
+
+  // --- Handle Stop Timer ---
+  const handleStop = async () => {
+    clearInterval(intervalRef.current!); // Stop any active interval
+    setTimerRunning(false);
+    setOnBreak(false); // Ensure break state is off
+
+    let secondsStudied = 0;
+    if (mode === 'stopwatch') {
+      secondsStudied = stopwatchSeconds;
+    } else { // 'pomodoro', 'reversePomodoro', 'custom'
+      // For countdown timers, it's the initial duration minus what's left
+      secondsStudied = Math.max(0, initialCountdownDuration - countdownTimeLeft);
+    }
+
+    await handleSaveStudyTime(secondsStudied);
 
     // Reset timer visuals after stopping and saving
     setCountdownTimeLeft(0);
     setStopwatchSeconds(0);
+    setPrePauseStudySeconds(0); // Ensure this is also reset
   };
 
   // --- Subject Management ---
@@ -262,7 +327,7 @@ const TimerPage = () => {
   // --- Dynamic Display Values ---
   // Determines what time string to show in the CircularProgressbar
   const displayTime = onBreak
-    ? formatTime(breakTimeLeft)
+    ? `Break: ${formatTime(breakTimeLeft)}` // Show "Break: MM:SS"
     : mode === 'stopwatch'
       ? formatTime(stopwatchSeconds)
       : formatTime(countdownTimeLeft);
@@ -270,7 +335,13 @@ const TimerPage = () => {
   // Determines the total duration for progress calculation (denominator for the fraction)
   let totalForProgressBar = 0;
   if (onBreak) {
-    totalForProgressBar = Math.floor(initialCountdownDuration / 3);
+    // When on break, the progress bar should show the break duration
+    // For pomodoro/reverse, the break is fixed, so use 5 minutes for progress bar total
+    if (mode === 'pomodoro' || mode === 'reversePomodoro') {
+      totalForProgressBar = 5 * 60;
+    } else { // For custom/stopwatch breaks
+      totalForProgressBar = Math.floor(prePauseStudySeconds / 3);
+    }
   } else if (mode === 'pomodoro') {
     totalForProgressBar = presets.pomodoro;
   } else if (mode === 'reversePomodoro') {
@@ -284,7 +355,7 @@ const TimerPage = () => {
   const progress = onBreak
     ? (totalForProgressBar > 0 ? 1 - breakTimeLeft / totalForProgressBar : 0) // Progress of the break
     : mode === 'stopwatch'
-      ? 1 // Stopwatch is "always progressing" or just shows elapsed time
+      ? (stopwatchSeconds / (180 * 60)) > 1 ? 1 : (stopwatchSeconds / (180 * 60)) // show progress based on a max of 3 hours, or cap at 1
       : (totalForProgressBar > 0 ? 1 - countdownTimeLeft / totalForProgressBar : 0); // Progress of countdown
 
   return (
@@ -312,7 +383,12 @@ const TimerPage = () => {
               setOnBreak(false);
               setTimerRunning(false);
               setStopwatchSeconds(0);
-              // The useEffect above will handle resetting countdownTimeLeft based on the new mode
+              setCountdownTimeLeft(0); // Explicitly reset countdown
+              setInitialCountdownDuration(0); // Explicitly reset initial duration
+              setPrePauseStudySeconds(0); // Reset pre-pause time
+              if (intervalRef.current) { // Clear any running interval when changing modes
+                clearInterval(intervalRef.current);
+              }
             }}
           >
             {m}
@@ -324,7 +400,7 @@ const TimerPage = () => {
       <div className="flex flex-col md:flex-row items-center justify-center gap-3">
         <label className="text-black">Subject:</label>
         <select
-          className="text-black px-2 py-1 rounded w-full md:w-auto"
+          className="text-black border border-black px-2 py-1 rounded w-full md:w-auto"
           value={subject}
           onChange={e => setSubject(e.target.value)}
         >
@@ -337,9 +413,9 @@ const TimerPage = () => {
       {/* Custom Timer Input */}
       {mode === 'custom' && (
         <div className="flex flex-col md:flex-row items-center justify-center gap-3 text-black">
-          <label className="text-white">Minutes (1–180):</label>
+          <label className="text-black">Minutes (1–180):</label>
           <input
-            className="text-black px-2 py-1 rounded w-24"
+            className="text-black border border-black px-2 py-1 rounded w-24"
             type="number"
             value={customMinutes}
             onChange={e => setCustomMinutes(e.target.value)}
@@ -353,7 +429,7 @@ const TimerPage = () => {
       <div className="w-64 h-64 mx-auto">
         <CircularProgressbar
           value={progress * 100}
-          text={displayTime} // Use the combined displayTime variable
+          text={displayTime as string | undefined} // Explicitly cast to string | undefined
           styles={buildStyles({
             pathColor: onBreak ? '#60a5fa' : subjectColors[subject] || '#f97316',
             textColor: onBreak ? '#60a5fa' : subjectColors[subject] || '#f97316',
@@ -362,16 +438,28 @@ const TimerPage = () => {
         />
       </div>
 
-      {/* Start / Stop Buttons */}
+      {/* Start / Stop / Pause Buttons */}
       <div className="flex flex-wrap justify-center gap-4">
-        {!timerRunning && (
+        {!timerRunning && !onBreak && (
           <button className="px-6 py-2 bg-green-600 rounded-xl hover:bg-green-700 transition" onClick={handleStart}>
             Start
           </button>
         )}
         {timerRunning && (
+          <>
+            {(mode === 'custom' || mode === 'stopwatch') && ( // Only show Pause for custom/stopwatch
+              <button className="px-6 py-2 bg-yellow-500 rounded-xl hover:bg-yellow-600 transition" onClick={handlePause}>
+                Pause
+              </button>
+            )}
+            <button className="px-6 py-2 bg-red-600 rounded-xl hover:bg-red-700 transition" onClick={handleStop}>
+              Stop
+            </button>
+          </>
+        )}
+        {onBreak && (
           <button className="px-6 py-2 bg-red-600 rounded-xl hover:bg-red-700 transition" onClick={handleStop}>
-            Stop
+            Stop Break & Save
           </button>
         )}
       </div>
