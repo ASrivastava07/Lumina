@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(req: NextRequest) {
-  const response = NextResponse.json({ success: true, message: 'Logged out' });
+  const response = new NextResponse(JSON.stringify({
+    success: true,
+    message: 'Logged out',
+  }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 
+  // Delete cookies
   response.cookies.set('is_logged_in', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',

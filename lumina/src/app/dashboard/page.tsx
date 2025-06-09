@@ -1,5 +1,5 @@
 'use client';
-
+import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { useRouter } from 'next/navigation';
@@ -19,10 +19,14 @@ export default function Dashboard() {
   const router = useRouter();
 
   // 🔹 All hooks at top level
+  const [userName, setUserName] = useState('');
   const [selectedDate, setSelectedDate] = useState(today);
   const [studyHours, setStudyHours] = useState<Record<string, number>>({});
   const [tasks, setTasks] = useState<any[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [newCategory, setNewCategory] = useState('');
+  const [selectedCategoryToDelete, setSelectedCategoryToDelete] = useState('');
   const [subjectColorsMap, setSubjectColorsMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [newTask, setNewTask] = useState({
@@ -36,6 +40,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+          // Fetch logged-in user
+        const userRes = await fetch('/api/login');
+        const userData = await userRes.json();
+        if (!userRes.ok || !userData.name) {
+          throw new Error('Failed to fetch user');
+        }
+        setUserName(userData.name);
+
         // Fetch user preferences (subjects + colors)
         const prefRes = await fetch('/api/user/preferences');
         const prefData = await prefRes.json();
@@ -55,19 +67,23 @@ export default function Dashboard() {
         if (!taskRes.ok) {
           throw new Error('Failed to load tasks');
         }
-        setTasks(taskData || []);
+        setTasks(taskData.tasks || []);
+
+        // fetch categories:
+        setCategories(taskData.category || []);
 
         // Fetch study hours for selected date
-        const studyRes = await fetch(`/api/user/study-hours?date=${selectedDate}`);
+        const studyRes = await fetch(`/api/user/study-hours`);
         const studyData = await studyRes.json();
-        if (!studyRes.ok || !studyData.studyTime) {
+        if (!studyRes.ok || !studyData.studyData) {
           throw new Error('Failed to load study time');
         }
-        setStudyHours(studyData.studyTime);
+        const dayData = studyData.studyData[selectedDate] || {};
+        setStudyHours(dayData);
       } catch (err) {
         console.error('Error loading dashboard:', err);
         alert('Failed to load dashboard data');
-        router.push('/login');
+        router.push('');
       } finally {
         setLoading(false);
       }
@@ -76,43 +92,51 @@ export default function Dashboard() {
     fetchData();
   }, [router, selectedDate]);
 
-  // 🚫 Avoid using Hooks conditionally or inside return
-  // ❌ Don't do this inside render:
-  // const [newSubject, setNewSubject] = useState('');
-  // ✅ Already moved to top level
 
-  // ✅ Build chart data only when subjects are loaded
-  const barDataDaily = {
-    labels: subjects.map(s => s.charAt(0).toUpperCase() + s.slice(1)),
-    datasets: [
-      {
-        label: 'Study Hours',
-        data: subjects.map((subject) => studyHours[subject] || 0),
-        backgroundColor: subjects.map((subject) => subjectColorsMap[subject]),
-      },
-    ],
-  };
+//  Filter out subjects that were actually studied (non-zero hours)
+const studiedSubjects = Object.keys(studyHours).filter(subject => studyHours[subject] > 0);
 
-  // ✅ Build doughnut chart data
-  const doughnutData = {
-    labels: subjects,
-    datasets: [
-      {
-        label: 'Time Spent',
-        data: subjects.map((subject) => studyHours[subject] || 0),
-        backgroundColor: subjects.map((subject) => subjectColorsMap[subject]),
-        borderWidth: 1,
-      },
-    ],
-  };
+//  Chart data only includes subjects that were actually studied
+const barDataDaily = {
+  labels: studiedSubjects.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
+  datasets: [
+    {
+      label: 'Study Hours',
+      data: studiedSubjects.map((subject) => studyHours[subject]),
+      backgroundColor: studiedSubjects.map((subject) => subjectColorsMap[subject]),
+    },
+  ],
+};
+
+// Donut Graph  
+const doughnutData = {
+  labels: studiedSubjects,
+  datasets: [
+    {
+      label: 'Hours Spent',
+      data: studiedSubjects.map((subject) => studyHours[subject]),
+      backgroundColor: studiedSubjects.map((subject) => subjectColorsMap[subject]),
+      borderWidth: 1,
+    },
+  ],
+};
 
   // ✅ Task status logic remains
-  const toggleComplete = (id: number) => {
-    setTasks(
-      tasks.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task
-      )
+  const toggleComplete = async (id: number) => {
+    const updatedTasks = tasks.map((task) =>
+      task.id === id ? { ...task, completed: !task.completed } : task
     );
+    setTasks(updatedTasks);
+    try {
+      await fetch('/api/user/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: updatedTasks, category: categories }),
+      });
+    } catch (err) {
+      console.error(err);
+      alert('Could not update task status.');
+    }
   };
 
   const getTaskStatus = (deadline: string, completed: boolean) => {
@@ -136,29 +160,98 @@ export default function Dashboard() {
     }
   };
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTask.title.trim() || !newTask.deadline || !newTask.subject) return;
-    const nextId = Math.max(...tasks.map((t) => t.id), 0) + 1;
-    setTasks([...tasks, { ...newTask, id: nextId }]);
+    const nextId = Math.max(...tasks.map((t) => t.id || 0), 0) + 1;
+    const updatedTasks = [...tasks, { ...newTask, id: nextId, completed: false }];
+    setTasks(updatedTasks);
     setNewTask({ title: '', subject: subjects.length > 0 ? subjects[0] : '', deadline: '' });
-  };
-
-  const handleAddSubject = () => {
-    const trimmed = newSubject.trim();
-    if (trimmed && !subjects.includes(trimmed)) {
-      setSubjects([...subjects, trimmed]);
-      setNewSubject('');
+    try {
+      await fetch('/api/user/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tasks: updatedTasks, category: categories }),
+    });
+  } 
+    catch (err) {
+      console.error(err);
+      alert('Could not save task to server.');
     }
   };
 
+  const handleAddCategory = async () => {
+    const trimmed = newCategory.trim().toLowerCase();
+    if (trimmed && !categories.includes(trimmed)) {
+      const updatedCategories = [...categories, trimmed];
+      try {
+        const res = await fetch('/api/user/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tasks, category: updatedCategories }),
+        });
+        if (!res.ok) throw new Error('Failed to save category');
+        setCategories(updatedCategories);
+        setNewCategory('');
+      } 
+      catch (err) {
+        console.error(err);
+        alert('Could not add category.');
+      }
+    }
+  };
+
+  const handleDeleteCategory = async () => {
+  if (!selectedCategoryToDelete) return;
+
+  const payload = {
+    categoryToDelete: selectedCategoryToDelete
+  };
+  
+  console.log('Sending payload:', payload); // Debug log
+
+  try {
+    const response = await fetch('/api/user/tasks', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    // Log the response for debugging
+    const responseData = await response.json();
+    console.log('Response:', responseData);
+
+    if (!response.ok) {
+      throw new Error(responseData.error || 'Failed to delete category');
+    }
+
+    // Update local state
+    setCategories((prev) =>
+      prev.filter((cat) => cat !== selectedCategoryToDelete)
+    );
+    setSelectedCategoryToDelete('');
+  } 
+  catch (error) {
+    console.error('Error deleting category:', error);
+    alert('Failed to delete category');
+  }
+};
+
   const handleLogout = () => {
-    fetch('/api/auth/logout', {
+    fetch('/api/logout', {
       method: 'POST',
       credentials: 'same-origin',
     }).then(() => {
-      router.push('/login');
+      router.push('http://localhost:3000');
     });
+    
+    router.replace('/');
   };
+
+  const totalHours = Object.values(studyHours).reduce((sum, h) => sum + h, 0).toFixed(1);
+  const onTimeTasks = tasks.filter(t => getTaskStatus(t.deadline, t.completed) === 'On Time' && !t.completed).length;
+  const overdueTasks = tasks.filter(t => getTaskStatus(t.deadline, t.completed) === 'Overdue' && !t.completed).length;
+  const completedTasks = tasks.filter(t => t.completed).length;
+
 
   // ✅ Show loading screen until data is fetched
   if (loading) {
@@ -173,16 +266,20 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen w-full bg-orange-50 px-4 py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold text-orange-600">Welcome, Jeff</h1>
+        <h1 className="text-2xl font-semibold text-orange-600">Welcome, {userName || 'User'}</h1>
         <button
           onClick={handleLogout}
           className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition"
         >
           Logout
         </button>
-        <button className="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-600 font-semibold transition">
-          Settings
-        </button>
+        <div className="flex justify-end">
+          <Link href="/settings" className="block">
+            <button className="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600 transition">
+              Settings
+            </button>
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[2fr_2fr_1fr] gap-6 h-[80vh]">
         {/* Daily Study Time */}
@@ -213,9 +310,11 @@ export default function Dashboard() {
               }}
             />
           </div>
-          <button className="mt-4 bg-orange-500 text-white py-2 rounded-md hover:bg-orange-600 transition">
-            Start Study Timer
-          </button>
+          <Link href="/timer" className='block w-full'>
+            <button className="w-full mt-4 bg-orange-500 text-white py-2 rounded-md hover:bg-orange-600 transition">
+              Start Study Timer
+            </button>
+          </Link>
         </div>
         {/* Task Manager Card */}
         <div className="bg-white rounded-2xl p-4 shadow-md flex flex-col h-full">
@@ -229,19 +328,58 @@ export default function Dashboard() {
               onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
               className="w-full border border-gray-400 rounded px-3 py-1 text-sm text-gray-800"
             />
+            {/* Add New category */}
+            
             <div className="flex gap-2">
               <select
                 value={newTask.subject}
                 onChange={(e) => setNewTask({ ...newTask, subject: e.target.value })}
                 className="border border-gray-600 rounded px-3 py-1 text-sm text-gray-800"
               >
-                {subjects.map((subject) => (
-                  <option key={subject} value={subject}>
-                    {subject.charAt(0).toUpperCase() + subject.slice(1)}
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
                   </option>
                 ))}
               </select>
-              <input
+              <div className="flex gap-2 items-center mt-2">
+                <input
+                  type="text"
+                  placeholder="New Catagory"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  className="w-full border border-gray-600 rounded px-3 py-1 text-sm text-gray-800"
+                />
+                <button
+                  onClick={handleAddCategory}
+                  className="bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition"
+                >
+                  ➕
+                </button>
+                <select
+                  value={selectedCategoryToDelete}
+                  onChange={(e) => setSelectedCategoryToDelete(e.target.value)}
+                  className="border border-gray-600 rounded px-3 py-1 text-sm text-gray-800 w-full"
+                >
+                  <option value="" disabled>Select category to delete</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleDeleteCategory}
+                  disabled={!selectedCategoryToDelete}
+                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition disabled:opacity-50"
+                >
+                  🗑️
+                </button>
+
+              </div>  
+            </div>
+            <div className='flex gap-2 items-center mt-2'>
+                <input
                 type="date"
                 value={newTask.deadline}
                 onChange={(e) => setNewTask({ ...newTask, deadline: e.target.value })}
@@ -252,22 +390,6 @@ export default function Dashboard() {
                 className="bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600"
               >
                 ➕ Add Task
-              </button>
-            </div>
-            {/* Add New Subject */}
-            <div className="flex gap-2 items-center mt-2">
-              <input
-                type="text"
-                placeholder="New Subject"
-                value={newSubject}
-                onChange={(e) => setNewSubject(e.target.value)}
-                className="w-full border border-gray-600 rounded px-3 py-1 text-sm text-gray-800"
-              />
-              <button
-                onClick={handleAddSubject}
-                className="bg-orange-500 text-white px-3 py-1 rounded hover:bg-orange-600 transition"
-              >
-                ➕
               </button>
             </div>
           </div>
@@ -321,10 +443,24 @@ export default function Dashboard() {
             </div>
           </div>
           {/* AI Insights */}
-          <div className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-center flex-1">
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">AI Insights</h2>
-            <p className="text-sm text-gray-800 text-gray-500">
-              You haven’t started studying yet. Begin your first session to get insights!
+          <div className="bg-white rounded-2xl p-4 shadow-md flex flex-col justify-between flex-1">
+            <h2 className="text-lg font-semibold text-gray-700 mb-2">🧠 Insights</h2>
+            <ul className="space-y-2 text-sm text-gray-700">
+              <li>
+                📊 <strong>Total Study Hours Today:</strong> {totalHours} hrs
+              </li>
+              <li>
+                ✅ <strong>Completed Tasks:</strong> {completedTasks}
+              </li>
+              <li>
+                ⏳ <strong>On-Time Pending Tasks:</strong> {onTimeTasks}
+              </li>
+              <li>
+                ⚠️ <strong>Overdue Tasks:</strong> {overdueTasks}
+              </li>
+            </ul>
+            <p className="mt-4 text-xs text-gray-500">
+              Keep tracking your progress to unlock deeper performance insights.
             </p>
           </div>
         </div>

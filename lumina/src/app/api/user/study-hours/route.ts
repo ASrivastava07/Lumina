@@ -1,14 +1,11 @@
-// app/api/user/study-hours/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { MongoClient, ObjectId } from 'mongodb';
 
 export async function GET(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
-  const { searchParams } = new URL(req.url);
-  const date = searchParams.get('date');
 
-  if (!userId || !date) {
-    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+  if (!userId) {
+    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
   }
 
   try {
@@ -24,32 +21,52 @@ export async function GET(req: NextRequest) {
     await client.close();
 
     if (!result || !result.studyData) {
-      return NextResponse.json(
-        { studyTime: {}, subjects: [] },
-        { status: 200 }
-      );
+      return NextResponse.json({ studyData: {} }, { status: 200 });
     }
 
-    const studyTimeForDate = result.studyData[date] || {};
-    const subjects = result.subjects || [];
-
-    // Ensure all subjects have a value (default to 0 if not found)
-    const fullStudyHours = subjects.reduce((acc: Record<string, number>, subject: string) => {
-    acc[subject] = studyTimeForDate[subject] || 0;
-    return acc;
-    }, {});
     return NextResponse.json(
       {
-        studyTime: fullStudyHours,
-        subjects: subjects,
+        studyData: result.studyData,
       },
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Error fetching study hours:', error.message);
+    console.error('Error fetching study data:', error.message);
     return NextResponse.json(
-      { error: 'Failed to load study time' },
+      { error: 'Failed to load study data' },
       { status: 500 }
     );
   }
-}   
+}
+
+export async function POST(req: NextRequest) {
+  const userId = req.cookies.get('user_id')?.value;
+  const { date, subject, duration } = await req.json();
+
+  if (!userId || !date || !subject || typeof duration !== 'number') {
+    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+  }
+
+  try {
+    const client = new MongoClient(process.env.MONGODB_URI!);
+    await client.connect();
+    const db = client.db('StudyTimes');
+    const collection = db.collection('Hours');
+
+    const query = { _id: new ObjectId(userId) };
+    const update = {
+      $inc: {
+        [`studyData.${date}.${subject}`]: duration
+      }
+    };
+    const options = { upsert: true };
+
+    await collection.updateOne(query, update, options);
+    await client.close();
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error saving study time:', error);
+    return NextResponse.json({ error: 'Failed to save study time' }, { status: 500 });
+  }
+}
