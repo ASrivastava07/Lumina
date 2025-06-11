@@ -1,7 +1,8 @@
+// app/loginpage.tsx or pages/login.tsx
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation'; // Correct for App Router, or 'next/router' for Pages Router
 
 type AuthMode = 'login' | 'signup' | 'forgot';
 
@@ -12,7 +13,7 @@ export default function AuthPage() {
     name: '',
     email: '',
     password: '',
-  }); // lovely
+  });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +34,7 @@ export default function AuthPage() {
         ? '/api/login'
         : mode === 'signup'
         ? '/api/signup'
-        : '/api/forgot-password'; // can be a placeholder route for now
+        : '/api/forgot-password'; // Placeholder for now
 
       const payload =
         mode === 'signup'
@@ -62,12 +63,15 @@ export default function AuthPage() {
       }
 
       if (mode === 'login') {
-        localStorage.setItem('is_logged_in', 'true');
-        localStorage.setItem('user_email', formData.email);
+        // localStorage is generally not recommended for auth state due to XSS vulnerability.
+        // Rely primarily on HTTP-only cookies managed by your API routes.
+        // Keeping it as per your original code, but noting the best practice.
+        localStorage.setItem('is_logged_in', 'true'); // This is largely redundant if cookies are primary
+        localStorage.setItem('user_email', formData.email); // Consider if this needs to be client-side only.
         router.push('/dashboard');
       } else if (mode === 'signup') {
         setSuccess('Signup successful! You can now log in.');
-        setMode('login');
+        setMode('login'); // Redirect to login after successful signup
       } else if (mode === 'forgot') {
         setSuccess('Password reset link sent to your email.');
       }

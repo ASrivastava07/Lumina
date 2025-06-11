@@ -1,12 +1,11 @@
 // app/api/user/preferences/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId, MongoServerError } from 'mongodb';
+import { connectToDatabase } from '@/lib/mongodb'; // Corrected import path
 
-const uri = process.env.MONGODB_URI!;
 const dbName = 'userpref';
 const collectionName = 'Pref';
 
-// GET method (already working)
 export async function GET(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
 
@@ -15,14 +14,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
+    const client = await connectToDatabase();
+    const db = client.db(dbName); // This line is correct
     const collection = db.collection(collectionName);
 
     const result = await collection.findOne({ _id: new ObjectId(userId) });
-
-    await client.close();
 
     if (!result || !result.subjects || !result.subjectcolors) {
       return NextResponse.json({ subjects: [], subjectcolors: {} }, { status: 200 });
@@ -30,12 +26,15 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json(result, { status: 200 });
   } catch (error: any) {
-    console.error('Error fetching preferences:', error.message);
-    return NextResponse.json({ error: 'Failed to load preferences' }, { status: 500 });
+    console.error('Error fetching preferences:', error);
+    let errorMessage = 'Failed to load preferences';
+    if (error instanceof MongoServerError) {
+        errorMessage = `Database error: ${error.message}`;
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
-// ✅ NEW: POST method to update preferences
 export async function POST(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
 
@@ -50,9 +49,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing data' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
+    const client = await connectToDatabase();
+    const db = client.db(dbName); // This line is correct
     const collection = db.collection(collectionName);
 
     const result = await collection.updateOne(
@@ -63,14 +61,16 @@ export async function POST(req: NextRequest) {
           subjectcolors,
         },
       },
-      { upsert: true } // create doc if not exists
+      { upsert: true }
     );
-
-    await client.close();
 
     return NextResponse.json({ message: 'Preferences saved', result }, { status: 200 });
   } catch (error: any) {
-    console.error('Error saving preferences:', error.message);
-    return NextResponse.json({ error: 'Failed to save preferences' }, { status: 500 });
+    console.error('Error saving preferences:', error);
+    let errorMessage = 'Failed to save preferences';
+    if (error instanceof MongoServerError) {
+        errorMessage = `Database error: ${error.message}`;
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

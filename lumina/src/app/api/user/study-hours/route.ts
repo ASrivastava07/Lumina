@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId, MongoServerError } from 'mongodb';
+import { connectToDatabase } from '@/lib/mongodb'; // Corrected import path
 
 export async function GET(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
@@ -9,16 +10,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const client = new MongoClient(process.env.MONGODB_URI!);
-    await client.connect();
-    const db = client.db('StudyTimes');
+    const client = await connectToDatabase();
+    const db = client.db('StudyTimes'); // This line is correct
     const collection = db.collection('Hours');
 
     const result = await collection.findOne({
       _id: new ObjectId(userId),
     });
-
-    await client.close();
 
     if (!result || !result.studyData) {
       return NextResponse.json({ studyData: {} }, { status: 200 });
@@ -31,9 +29,13 @@ export async function GET(req: NextRequest) {
       { status: 200 }
     );
   } catch (error: any) {
-    console.error('Error fetching study data:', error.message);
+    console.error('Error fetching study data:', error);
+    let errorMessage = 'Failed to load study data';
+    if (error instanceof MongoServerError) {
+        errorMessage = `Database error: ${error.message}`;
+    }
     return NextResponse.json(
-      { error: 'Failed to load study data' },
+      { error: errorMessage },
       { status: 500 }
     );
   }
@@ -44,13 +46,12 @@ export async function POST(req: NextRequest) {
   const { date, subject, duration } = await req.json();
 
   if (!userId || !date || !subject || typeof duration !== 'number') {
-    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+    return NextResponse.json({ error: 'Missing or invalid parameters' }, { status: 400 });
   }
 
   try {
-    const client = new MongoClient(process.env.MONGODB_URI!);
-    await client.connect();
-    const db = client.db('StudyTimes');
+    const client = await connectToDatabase();
+    const db = client.db('StudyTimes'); // This line is correct
     const collection = db.collection('Hours');
 
     const query = { _id: new ObjectId(userId) };
@@ -62,11 +63,14 @@ export async function POST(req: NextRequest) {
     const options = { upsert: true };
 
     await collection.updateOne(query, update, options);
-    await client.close();
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
+    return NextResponse.json({ success: true }, { status: 200 });
+  } catch (error: any) {
     console.error('Error saving study time:', error);
-    return NextResponse.json({ error: 'Failed to save study time' }, { status: 500 });
+    let errorMessage = 'Failed to save study time';
+    if (error instanceof MongoServerError) {
+        errorMessage = `Database error: ${error.message}`;
+    }
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

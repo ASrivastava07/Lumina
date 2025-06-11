@@ -1,21 +1,13 @@
+// app/api/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
-
+import { connectToDatabase } from '@/lib/mongodb'; // Path is correct
 
 export const runtime = 'nodejs';
 
-const uri = process.env.MONGODB_URI || '';
-const dbName = process.env.MONGODB_DB || '';
-const collectionName = process.env.MONGODB_COLLECTION || '';
-
-
-
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get('x-forwarded-for') || 'unknown-ip';
-  // Rate limiting logic goes here
-
   try {
     const body = await req.json();
     const { email, password } = body;
@@ -24,12 +16,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
-    const users = db.collection(collectionName);
+    // ⭐ CORRECTED: Get the MongoClient instance
+    const client = await connectToDatabase();
+    // ⭐ Select the specific database for authentication
+    // You should define process.env.MONGODB_AUTH_DB_NAME in your .env.local
+    const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin'); // Using 'Authlogin' 
+    const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
-    const user = await users.findOne({ email: email.toLowerCase().trim() });
+    const user = await usersCollection.findOne({ email: email.toLowerCase().trim() });
 
     if (!user) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
@@ -41,7 +35,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Set cookies on successful login
     const response = NextResponse.json({
       success: true,
       message: 'Login successful',
@@ -53,7 +46,7 @@ export async function POST(req: NextRequest) {
     });
 
     response.cookies.set('is_logged_in', 'true', {
-      httpOnly: true, // prevents XSS
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7, // 7 days
       path: '/',
@@ -61,7 +54,7 @@ export async function POST(req: NextRequest) {
     });
 
     response.cookies.set('user_id', user._id.toString(), {
-      httpOnly: true, // prevents XSS
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24 * 7,
       path: '/',
@@ -78,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const cookieStore = await cookies();
     const userId = cookieStore.get('user_id')?.value;
@@ -87,14 +80,14 @@ export async function GET() {
       return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
     }
 
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
-    const users = db.collection(collectionName);
+    // ⭐ CORRECTED: Get the MongoClient instance
+    const client = await connectToDatabase();
+    // ⭐ Select the specific database for authentication
+    const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin');
+    const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
-    const user = await users.findOne({ _id: new ObjectId(userId) });
-
-    await client.close();
+    // Make sure to use ObjectId for _id queries
+    const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
 
     if (!user) {
       return NextResponse.json({ success: false, message: 'User not found' }, { status: 404 });
@@ -127,10 +120,11 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'No fields to update' }, { status: 400 });
     }
 
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
-    const users = db.collection(collectionName);
+    // ⭐ CORRECTED: Get the MongoClient instance
+    const client = await connectToDatabase();
+    // ⭐ Select the specific database for authentication
+    const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin');
+    const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
     const updateFields: any = {};
     if (name) updateFields.name = name;
@@ -147,12 +141,10 @@ export async function PATCH(req: NextRequest) {
       updateFields.password = await bcrypt.hash(password, 10);
     }
 
-    await users.updateOne(
+    await usersCollection.updateOne(
       { _id: new ObjectId(userId) },
       { $set: updateFields }
     );
-
-    await client.close();
 
     return NextResponse.json({ success: true, message: 'User info updated' });
   } catch (err: unknown) {
