@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation'; // Correct for App Router, or 'next/router' for Pages Router
 
-type AuthMode = 'login' | 'signup' | 'forgot';
+type AuthMode = 'login' | 'signup';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -170,15 +170,6 @@ export default function AuthPage() {
                   Sign up
                 </button>
               </p>
-              <p className="mt-2">
-                Forgot your password?{' '}
-                <button
-                  onClick={() => setMode('forgot')}
-                  className="text-[#e97917] hover:underline font-semibold"
-                >
-                  Reset Password
-                </button>
-              </p>
             </>
           )}
           {mode === 'signup' && (
@@ -189,17 +180,6 @@ export default function AuthPage() {
                 className="text-[#e97917] hover:underline font-semibold"
               >
                 Login
-              </button>
-            </p>
-          )}
-          {mode === 'forgot' && (
-            <p>
-              Remembered your password?{' '}
-              <button
-                onClick={() => setMode('login')}
-                className="text-[#e97917] hover:underline font-semibold"
-              >
-                Back to login
               </button>
             </p>
           )}
