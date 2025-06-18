@@ -1,33 +1,47 @@
-# Lumina
+Lumina
 A secure, AI-enhanced Progressive Web App (PWA) to help students plan their study schedules, log their learning, track performance, and receive predictions based on past study patterns. Built as a major project for the Year 12 NSW Software Engineering course.
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a Next.js project bootstrapped with create-next-app.
 
-## Getting Started
+Getting Started
+To get started with Lumina locally, follow these steps:
 
-First, run the development server:
+Clone the Repository:
 
-```bash
+git clone https://github.com/ASrivastava07/Lumina.git
+cd Lumina
+
+Install Dependencies:
+
+npm install
+
+Run the Development Server:
+First, launch the development server to quickly see your changes.
+
 npm run dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 with your browser to see the result. The page will auto-update as you edit files.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Build and Start Locally (for production-like testing):
+For a more production-like environment and faster loading, first build the project, then start it.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+npm run build
+npm run start
 
-## Learn More
+This will also typically serve the app on http://localhost:3000.
 
+Live Demo & Source Code
+If you prefer to see Lumina in action immediately or explore the full source code:
+
+Live Vercel Deployment: https://lumina-pwa.vercel.app  (Do this incase cant get the local one to work please ask for help from me)
+
+GitHub Repository: https://github.com/ASrivastava07/Lumina
+
+Learn More
 To learn more about Next.js, take a look at the following resources:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js Documentation - learn about Next.js features and API.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Learn Next.js - an interactive Next.js tutorial.
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+You can check out the Next.js GitHub repository - your feedback and contributions are welcome!
