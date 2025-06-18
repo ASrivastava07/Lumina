@@ -1,7 +1,6 @@
-// /api/user/tasks/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId, MongoServerError } from 'mongodb';
-import { connectToDatabase } from '@/lib/mongodb'; // Corrected import path
+import { connectToDatabase } from '@/lib/mongodb'; 
 
 export async function GET(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
@@ -12,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const client = await connectToDatabase();
-    const db = client.db('TaskManager'); // This line is correct
+    const db = client.db('TaskManager'); 
     const collection = db.collection('Usertasks');
 
     const userDoc = await collection.findOne({ _id: new ObjectId(userId) });
@@ -46,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const client = await connectToDatabase();
-    const db = client.db('TaskManager'); // This line is correct
+    const db = client.db('TaskManager'); 
     const collection = db.collection('Usertasks');
 
     await collection.updateOne(
@@ -103,7 +102,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     const client = await connectToDatabase();
-    const db = client.db('TaskManager'); // This line is correct
+    const db = client.db('TaskManager'); 
     const collection = db.collection('Usertasks');
 
     const userDoc = await collection.findOne({ _id: new ObjectId(userId) });

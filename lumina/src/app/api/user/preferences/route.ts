@@ -1,7 +1,6 @@
-// app/api/user/preferences/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId, MongoServerError } from 'mongodb';
-import { connectToDatabase } from '@/lib/mongodb'; // Corrected import path
+import { connectToDatabase } from '@/lib/mongodb'; 
 
 const dbName = 'userpref';
 const collectionName = 'Pref';
@@ -15,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const client = await connectToDatabase();
-    const db = client.db(dbName); // This line is correct
+    const db = client.db(dbName); 
     const collection = db.collection(collectionName);
 
     const result = await collection.findOne({ _id: new ObjectId(userId) });
@@ -50,7 +49,7 @@ export async function POST(req: NextRequest) {
     }
 
     const client = await connectToDatabase();
-    const db = client.db(dbName); // This line is correct
+    const db = client.db(dbName); 
     const collection = db.collection(collectionName);
 
     const result = await collection.updateOne(

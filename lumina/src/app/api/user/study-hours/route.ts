@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId, MongoServerError } from 'mongodb';
-import { connectToDatabase } from '@/lib/mongodb'; // Corrected import path
+import { connectToDatabase } from '@/lib/mongodb'; 
 
 export async function GET(req: NextRequest) {
   const userId = req.cookies.get('user_id')?.value;
@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const client = await connectToDatabase();
-    const db = client.db('StudyTimes'); // This line is correct
+    const db = client.db('StudyTimes'); 
     const collection = db.collection('Hours');
 
     const result = await collection.findOne({
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const client = await connectToDatabase();
-    const db = client.db('StudyTimes'); // This line is correct
+    const db = client.db('StudyTimes'); 
     const collection = db.collection('Hours');
 
     const query = { _id: new ObjectId(userId) };

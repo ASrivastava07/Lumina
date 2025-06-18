@@ -1,9 +1,9 @@
-// app/api/login/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { ObjectId } from 'mongodb';
 import bcrypt from 'bcryptjs';
 import { cookies } from 'next/headers';
-import { connectToDatabase } from '@/lib/mongodb'; // Path is correct
+import { connectToDatabase } from '@/lib/mongodb'; 
 
 export const runtime = 'nodejs';
 
@@ -16,10 +16,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
     }
 
-    // ⭐ CORRECTED: Get the MongoClient instance
+
     const client = await connectToDatabase();
-    // ⭐ Select the specific database for authentication
-    // You should define process.env.MONGODB_AUTH_DB_NAME in your .env.local
+  
     const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin'); // Using 'Authlogin' 
     const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
@@ -80,13 +79,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Not authenticated' }, { status: 401 });
     }
 
-    // ⭐ CORRECTED: Get the MongoClient instance
+
     const client = await connectToDatabase();
-    // ⭐ Select the specific database for authentication
+
     const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin');
     const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
-    // Make sure to use ObjectId for _id queries
+
     const user = await usersCollection.findOne({ _id: new ObjectId(userId) });
 
     if (!user) {
@@ -120,9 +119,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'No fields to update' }, { status: 400 });
     }
 
-    // ⭐ CORRECTED: Get the MongoClient instance
     const client = await connectToDatabase();
-    // ⭐ Select the specific database for authentication
+
     const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin');
     const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 

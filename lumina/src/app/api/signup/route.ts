@@ -1,7 +1,6 @@
-// app/api/signup/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { connectToDatabase } from '@/lib/mongodb'; // Path is correct
+import { connectToDatabase } from '@/lib/mongodb';
 
 export const runtime = 'nodejs';
 
@@ -10,7 +9,6 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, password } = body;
 
-    // --- Input Validation ---
     if (!name || !email || !password) {
       return NextResponse.json(
         { success: false, message: 'Missing required fields' },
@@ -32,14 +30,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // --- Database Operations ---
-    // ⭐ CORRECTED: Get the MongoClient instance
     const client = await connectToDatabase();
-    // ⭐ Select the specific database for authentication
-    const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin'); // Using 'Authlogin' as a sensible default
-    const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth'); // Use collection name from env
+    const db = client.db(process.env.MONGODB_AUTH_DB_NAME || 'Authlogin');
+    const usersCollection = db.collection(process.env.MONGODB_COLLECTION || 'Auth');
 
-    // Check for existing user
     const existingUser = await usersCollection.findOne({
       email: email.toLowerCase().trim(),
     });
@@ -51,7 +45,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash password and insert new user
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newUser = {
