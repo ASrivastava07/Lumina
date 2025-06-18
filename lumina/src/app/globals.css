@@ -1,79 +1,120 @@
-@import "tailwindcss";
+@import "tailwindcss"; /* Imports Tailwind CSS, a utility-first CSS framework. This makes it easy to style elements using pre-defined classes. */
 
+/*
+  :root pseudo-class targets the document's root element (<html>).
+  This section defines CSS variables for background and foreground colors.
+  These variables are used throughout the stylesheet to maintain a consistent color scheme.
+*/
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #ffffff; /* Default light background color (white). */
+  --foreground: #171717; /* Default dark foreground/text color. */
 }
 
+/*
+  @media (prefers-color-scheme: dark) is a media query that applies styles
+  when the user's operating system or browser is set to a dark theme.
+  This provides a dark mode experience for the website.
+*/
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0a0a0a; /* Dark background color for dark mode. */
+    --foreground: #ededed; /* Light foreground/text color for dark mode. */
   }
 }
 
+/* Styles applied to the entire body of the HTML document. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--background); /* Uses the CSS variable for the background color, adapting to light/dark mode. */
+  color: var(--foreground); /* Uses the CSS variable for the text color. */
+  font-family: Arial, Helvetica, sans-serif; /* Sets a simple, common font stack for general text. */
 }
 
+/*
+  @keyframes define the animation for elements.
+  This 'typing' animation simulates text being typed out character by character.
+*/
 @keyframes typing {
   from {
-    width: 0;
+    width: 0; /* Starts with no width, making the text invisible. */
   }
   to {
-    width: 100%;
+    width: 100%; /* Expands to full width, revealing the text. */
   }
 }
 
+/*
+  This 'blink' animation creates a blinking effect, typically used for a cursor
+  or to draw attention to an element.
+*/
 @keyframes blink {
   50% {
-    border-color: transparent;
+    border-color: transparent; /* At 50% of the animation, the border becomes transparent, creating the blink. */
   }
 }
 
+/*
+  The 'glow' animation makes text appear to glow and pulsate, changing its
+  shadow intensity and color over time.
+*/
 @keyframes glow {
   0%, 100% {
-    text-shadow: 0 0 6px #e97917, 0 0 12px #e97917;
+    text-shadow: 0 0 6px #e97917, 0 0 12px #e97917; /* Initial and final glow state. */
   }
   50% {
-    text-shadow: 0 0 12px #ffa94d, 0 0 20px #ffb347;
+    text-shadow: 0 0 12px #ffa94d, 0 0 20px #ffb347; /* Mid-point of the glow, a slightly different color and stronger glow. */
   }
 }
 
+/*
+  Styles for an element with the 'typewriter' class. This creates an effect
+  where text appears as if typed on a typewriter, complete with a blinking cursor.
+*/
 .typewriter {
-  display: inline-block;
-  overflow: hidden;
-  white-space: nowrap;
-  border-right: 2px solid #e97917;
+  display: inline-block; /* Allows the element to sit inline with text while controlling its dimensions. */
+  overflow: hidden; /* Hides content that exceeds the element's width, essential for the typing effect. */
+  white-space: nowrap; /* Prevents text from wrapping to the next line. */
+  border-right: 2px solid #e97917; /* Creates the blinking cursor effect. */
   animation:
-    typing 3s steps(40, end) forwards,
-    blink 0.8s step-end infinite;
-  max-width: 100%;
-  font-size: inherit;
-  line-height: 1.3;
-  box-sizing: border-box;
+    typing 3s steps(40, end) forwards, /* Applies the 'typing' animation: 3 seconds, 40 steps (for character-by-character reveal), and stays at the end state. */
+    blink 0.8s step-end infinite; /* Applies the 'blink' animation: 0.8 seconds, instant step at end, repeats indefinitely. */
+  max-width: 100%; /* Ensures the typewriter effect adapts to different screen sizes. */
+  font-size: inherit; /* Inherits font size from its parent. */
+  line-height: 1.3; /* Sets line height. */
+  box-sizing: border-box; /* Ensures padding and border are included in the element's total width and height. */
 }
 
+/*
+  Applies the 'glow' animation to elements with the 'animate-glow' class.
+*/
 .animate-glow {
-  animation: glow 3s ease-in-out infinite;
+  animation: glow 3s ease-in-out infinite; /* Applies the 'glow' animation: 3 seconds, smooth start/end, repeats indefinitely. */
 }
 
+/*
+  Media query for screens with a maximum width of 768 pixels (e.g., mobile phones).
+  This defines a responsive layout for the dashboard grid.
+*/
 @media (max-width: 768px) {
   .dashboard-grid {
-    grid-template-columns: repeat(1, minmax(0, 1fr));
+    grid-template-columns: repeat(1, minmax(0, 1fr)); /* On small screens, the dashboard grid will have 1 column. */
   }
 }
 
+/*
+  Media query for screens with a minimum width of 769 pixels (e.g., tablets and desktops).
+*/
 @media (min-width: 769px) {
   .dashboard-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* On larger screens, the dashboard grid will have 4 columns. */
   }
 }
 
+/*
+  Media query for screens with a minimum width of 1024 pixels (e.g., larger desktops).
+  This maintains the 4-column layout for larger screens.
+*/
 @media (min-width: 1024px) {
   .dashboard-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr)); /* On even larger screens, the dashboard grid maintains 4 columns. */
   }
 }
